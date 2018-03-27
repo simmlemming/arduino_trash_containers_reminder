@@ -5,46 +5,46 @@
 #define BLUE_LED_PIN 4
 
 RTC_DS3231 rtc;
-DateTime mar26 = DateTime(2018, 3, 26);
-int days_in_month[] = { 31,28,31,30,31,30,31,31,30,31,30,31 };
+
+// March 28 is a Monday of non paper week.
+const DateTime MARCH_26_2018 = DateTime(2018, 3, 26);
+const TimeSpan ONE_DAY = TimeSpan(1, 0, 0, 0);
+const int TEN_MINUTES = 600000;
 
 enum Trash {
   PAPER, PLASTIC, DUO, NONE
 };
 
 void setup() {
-  Serial.begin(9600);
+//  Serial.begin(9600);
   
   pinMode(GREEN_LED_PIN, OUTPUT);
   pinMode(RED_LED_PIN, OUTPUT);
   pinMode(BLUE_LED_PIN, OUTPUT);
 
-  digitalWrite(RED_LED_PIN, 0);
-  digitalWrite(GREEN_LED_PIN, 0);
-  digitalWrite(BLUE_LED_PIN, 0);
-
+  led_off();
+  
   if (!rtc.begin()) {
-    Serial.println("Couldn't find RTC");
+    led_red();
     while (1);
   }
 
-  adjust_rtc_time();
+//  adjust_rtc_time();
+}
 
-//  DateTime now = rtc.now();
-//  Serial.print(now.hour());
-//  Serial.print(":");
-//  Serial.println(now.minute());
+void loop() {
+  DateTime today = rtc.now();
+  DateTime tomorrow = today + ONE_DAY;
 
-//  Serial.print("month = ");
-//  Serial.println(now.month());
-  //Serial.println(now.dayOfTheWeek());
+  Trash trash = get_trash(tomorrow);
+  
+  if (trash != NONE && is_evening(today)) {
+    led_on(trash);
+  } else {
+    led_off();
+  }
 
-  DateTime then = DateTime(2019, 10, 24);
-//  bool is_papier = is_paper_week(then);
-//  Serial.print("is paper = ");
-//  Serial.println(is_papier);
-  Serial.print("trash = ");
-  Serial.println(get_trash(then));
+  delay(TEN_MINUTES);
 }
 
 Trash get_trash(DateTime date) {
@@ -62,35 +62,32 @@ Trash get_trash(DateTime date) {
 }
 
 bool is_paper_week(DateTime date) {
-  TimeSpan s = date - mar26;
-
-  int days = s.days();
-
-  while (days >= 14) {
-    days -= 14;
-  }
-
-  return days >= 7;
+  TimeSpan time_sinse_march_26 = date - MARCH_26_2018;
+  int days_sinse_march_26 = time_sinse_march_26.days();
+  
+  int remainder = days_sinse_march_26 % 14;
+  
+  return remainder >= 7;
 }
 
-int week_of_year(int month, int day_of_month) {
-  int days_passed = 0;
-  for (int i = 0; i < month; i++) {
-    days_passed += days_in_month[i];
+void led_on(Trash trash) {
+  switch (trash) {
+    case PAPER:
+      led_red();
+      break;
+
+    case PLASTIC:
+      led_blue();
+      break;
+
+    case DUO:
+      led_green();
+      break;
+
+    default:
+      led_off();
+      break;
   }
-
-  return (days_passed + day_of_month) / 7;
-}
-
-void loop() {
-//  led_red();
-//  delay(1000);
-//  
-//  led_green();
-//  delay(1000);
-//  
-//  led_blue();
-//  delay(1000);
 }
 
 void led_red() {
@@ -109,6 +106,16 @@ void led_blue() {
   digitalWrite(RED_LED_PIN, 0);
   digitalWrite(GREEN_LED_PIN, 0);
   digitalWrite(BLUE_LED_PIN, 1);
+}
+
+void led_off() {
+  digitalWrite(RED_LED_PIN, 0);
+  digitalWrite(GREEN_LED_PIN, 0);
+  digitalWrite(BLUE_LED_PIN, 0);
+}
+
+bool is_evening(DateTime time) {
+  return time.hour() >= 16;
 }
 
 void adjust_rtc_time() {
